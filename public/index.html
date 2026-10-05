@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0b0e13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>照片同步</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="hd">
+    <div class="hd-l">
+      <h1>照片同步</h1>
+      <p class="sub" id="sub">连接中…</p>
+    </div>
+    <div class="dot" id="dot" title=""></div>
+  </header>
+
+  <div class="banner" id="sleepBanner" hidden>
+    <strong>Mac 可能在睡眠</strong>
+    <span id="sleepText"></span>
+  </div>
+
+  <section class="card" id="pickerCard">
+    <div class="picker" id="picker" tabindex="0" role="button" aria-label="选择照片">
+      <div class="picker-ico">＋</div>
+      <div class="picker-main">选择照片 / 视频</div>
+      <div class="picker-sub">支持多选 · 已同步的会自动跳过</div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*,video/*" multiple hidden>
+    <button class="alt" id="dirBtn" hidden>授权相册目录（下次自动同步）</button>
+  </section>
+
+  <section class="card" id="queueCard" hidden>
+    <div class="qhd">
+      <span>待同步 <b id="qCount">0</b></span>
+      <button class="mini" id="clearQ">清空</button>
+    </div>
+    <div class="qlist" id="qList"></div>
+    <div class="qfoot">
+      <button class="go" id="syncBtn">开始同步</button>
+      <button class="stop" id="stopBtn" hidden>停止</button>
+    </div>
+  </section>
+
+  <section class="stats" id="stats">
+    <div class="st"><b id="sIndexed">0</b><span>Mac 已存</span></div>
+    <div class="st"><b id="sSent">0</b><span>本次已传</span></div>
+    <div class="st"><b id="sSize">0</b><span>占用空间</span></div>
+  </section>
+
+  <section class="log" id="log" hidden>
+    <div class="loghd">日志</div>
+    <pre id="logBody"></pre>
+  </section>
+
+  <footer class="ft" id="ft">正在读取 Mac 状态…</footer>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>

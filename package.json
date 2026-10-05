@@ -1,0 +1,17 @@
+{
+  "name": "phonesync",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "把 OPPO 手机的照片自动同步到 Mac",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/e2e.js",
+    "install-launchagent": "./scripts/install-autostart.sh",
+    "uninstall-launchagent": "./scripts/uninstall-autostart.sh"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

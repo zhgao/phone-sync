@@ -1,0 +1,30 @@
+# 依赖
+node_modules/
+
+# macOS
+.DS_Store
+.AppleDouble
+._*
+
+# 日志
+*.log
+npm-debug.log*
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 本地配置（含本机绝对路径，不应进仓库）
+config.local.json
+.env
+.env.*
+
+# 照片
+# 注意：不要用 *.png / *.jpg 这类通配，会把项目自带的 icons/ 也排除掉。
+# 只排除测试产物目录 —— 误传到项目里的照片不会进仓库，项目图标照常提交。
+/tmp-test/
+/uploads/
+test/fixtures/*.jpg
+test/fixtures/*.png
+test/fixtures/*.mp4
