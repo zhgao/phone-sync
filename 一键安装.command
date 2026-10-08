@@ -129,6 +129,17 @@ if ! "$SCRIPT_DIR/scripts/install-syncthing-autostart.sh" 2>&1 | sed 's/^/  /'; 
   warn "开机自启脚本返回非零, 可稍后手动跑 scripts/install-syncthing-autostart.sh"
 fi
 
+# --------------------------------------------- 4b. 创建共享文件夹（核心）
+# 必须放在自启之后：要用 REST API 连上正在跑的 Syncthing。
+# 这一步是整个项目的中枢——没有共享文件夹，Syncthing 跑着也没地方可传。
+step "创建共享文件夹"
+sleep 3   # 等 Syncthing 起来
+if python3 "$SCRIPT_DIR/scripts/setup-folder-api.py" 2>&1 | sed 's/^/  /'; then
+  :
+else
+  warn "共享文件夹创建失败, 手机端配对了也传不过来"
+fi
+
 # ---------------------------------------------------------------- 5. 收尾
 step "预下载手机端安装包"
 APK_DIR="$STATE_DIR/apk"
@@ -191,6 +202,33 @@ else
   FAILED=1
 fi
 
+# 最关键的一项：Syncthing 是否真的加载了共享文件夹。
+# 之前的版本漏了这项，导致「5 项全过」但实际没地方可传 —— 假成功。
+FOLDER_OK="$(python3 -c "
+import http.client, io, os, re, json
+cfg = os.path.expanduser('~/Library/Application Support/Syncthing/config.xml')
+s = io.open(cfg, encoding='utf-8').read()
+k = re.search(r'<apikey>([^<]+)</apikey>', s)
+if not k:
+    print('nokey'); raise SystemExit
+c = http.client.HTTPConnection('127.0.0.1', 8384, timeout=15)
+c.request('GET', '/rest/config/folders', headers={'X-API-Key': k.group(1)})
+d = json.loads(c.getresponse().read().decode())
+good = [f for f in d if f.get('id') == 'phone-photos' and f.get('path')]
+print('%d' % len(good))
+" 2>/dev/null)"
+
+if [ "$FOLDER_OK" = "1" ]; then
+  ok "共享文件夹已创建 (Syncthing 已加载)"
+elif [ "$FOLDER_OK" = "0" ]; then
+  warn "Syncthing 没加载到共享文件夹 —— 手机端配对了也传不过来"
+  warn "  修复: python3 scripts/setup-folder-api.py"
+  FAILED=1
+else
+  warn "无法查询 Syncthing API (apikey 读不到)"
+  FAILED=1
+fi
+
 printf '\n'
 if [ "$FAILED" -ne 0 ]; then
   printf '\033[1;33m  Mac 端已装, 但有项目没通过检查 (见上面的 ! )\033[0m\n\n'
@@ -225,3 +263,10 @@ say ""
 
 printf '按回车关闭…'
 read -r _ || true
+
+# 退出码必须反映验证结果，否则调用方（脚本/CI）无法判断成功与否。
+# 放在 read 之后：双击运行时等用户确认，但退出码照样带出去。
+if [ "$FAILED" -ne 0 ]; then
+  exit 1
+fi
+exit 0
