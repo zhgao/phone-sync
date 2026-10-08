@@ -49,15 +49,58 @@ PLIST_EOF
 
 sed -i '' "s|__BIN__|$BIN|g; s|__LOG_DIR__|$LOG_DIR|g; s|__HOME__|$HOME|g" "$PLIST"
 
-launchctl bootout "gui/$UID_NUM/com.syncthing.syncthing" 2>/dev/null || true
-launchctl bootstrap "gui/$UID_NUM" "$PLIST" 2>/dev/null || launchctl load -w "$PLIST" 2>/dev/null || true
-sleep 2
+# 已注册就先 bootout 再重新装载（配置变了需要重载）
+# 但 bootout+bootstrap 在部分环境会失败（launchctl 的 gui domain 限制），
+# 所以：只有确实已注册时才 bootout，之后优先 bootstrap，失败再退回 load。
+if launchctl print "gui/$UID_NUM/com.syncthing.syncthing" >/dev/null 2>&1; then
+  launchctl bootout "gui/$UID_NUM/com.syncthing.syncthing" 2>/dev/null || true
+  sleep 1
+fi
+
+LOADED=0
+if launchctl bootstrap "gui/$UID_NUM" "$PLIST" 2>/dev/null; then
+  LOADED=1
+elif launchctl load -w "$PLIST" 2>/dev/null; then
+  LOADED=1
+fi
+
+# 两条路都没成（比如 GUI 版已经在跑占着），退回用 open 拉起，
+# 保证「装完之后能用」这个结果，而不是死磕 launchctl。
+if [ "$LOADED" -ne 1 ]; then
+  open -a Syncthing 2>/dev/null || true
+fi
 
 IP="$(ipconfig getifaddr en0 2>/dev/null || echo '127.0.0.1')"
 echo
 
+# launchd 注册成功 != 进程活着。Syncthing 冷启动要 10-20 秒
+# （测哈希性能、连中继、扫本地设备），只查 launchd 会误报成功。
+# 这里轮询等端口真起来，最多等 40 秒。
+WAITED=0
+LISTENING=0
+while [ "$WAITED" -lt 40 ]; do
+  if lsof -nP -iTCP:8384 -sTCP:LISTEN 2>/dev/null | grep -qi syncthing; then
+    LISTENING=1
+    break
+  fi
+  sleep 2
+  WAITED=$((WAITED + 2))
+  printf '.'
+done
+echo
+
+REGISTERED=0
 if launchctl print "gui/$UID_NUM/com.syncthing.syncthing" >/dev/null 2>&1; then
-  echo "  [OK] Syncthing 已注册开机自启并运行"
+  REGISTERED=1
+fi
+
+if [ "$REGISTERED" -eq 1 ] && [ "$LISTENING" -eq 1 ]; then
+  CODE="$(curl -s -o /dev/null -w '%{http_code}' --noproxy '*' "http://$IP:8384/" 2>/dev/null)"
+  if [ "$CODE" = "200" ]; then
+    echo "  [OK] Syncthing 已启动, 开机自启已注册"
+  else
+    echo "  [!] 端口在监听, 但 HTTP 返回 $CODE (手机可能连不上)"
+  fi
   echo
   echo "  Web UI:"
   echo "    本机    http://127.0.0.1:8384"
@@ -66,8 +109,18 @@ if launchctl print "gui/$UID_NUM/com.syncthing.syncthing" >/dev/null 2>&1; then
   echo "  日志: $LOG_DIR/syncthing.out.log"
   echo "  停止: launchctl bootout gui/$UID_NUM/com.syncthing.syncthing"
 else
-  echo "  [!] plist 已装到 $PLIST，但未能自动拉起"
+  if [ "$REGISTERED" -eq 1 ]; then
+    echo "  [!] 已注册开机自启, 但进程没起来 (等了 ${WAITED} 秒)"
+  else
+    echo "  [!] plist 已装到 ${PLIST}, 但未能注册"
+  fi
   echo
-  echo "      请手动启动一次，或到「系统设置 → 通用 → 登录项」里添加 Syncthing。"
-  echo "      日志: $LOG_DIR/syncthing.err.log"
+  echo "      手动启动:  open -a Syncthing"
+  echo "      或到「系统设置 -> 通用 -> 登录项」里添加"
+  echo "      错误日志: $LOG_DIR/syncthing.err.log"
+  echo "      输出日志: $LOG_DIR/syncthing.out.log"
 fi
+
+# 注册但没起来时返回非零，让上层脚本能感知
+[ "$REGISTERED" -eq 1 ] && [ "$LISTENING" -eq 1 ]
+

@@ -77,7 +77,7 @@ if [ "$GUI_ADDR" = "0.0.0.0:8384" ]; then
 elif [ -z "$GUI_ADDR" ]; then
   echo "✗ 未找到 gui 段内的 address"; FAIL=1
 else
-  echo "✗ gui 段内 address 异常（$GUI_ADDR）"; FAIL=1
+  echo "✗ gui 段内 address 异常（${GUI_ADDR}）"; FAIL=1
 fi
 
 grep -q '<localAnnounceEnabled>true</localAnnounceEnabled>' "$CFG" \
